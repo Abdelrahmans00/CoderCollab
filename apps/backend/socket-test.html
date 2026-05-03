@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head><title>Socket Test</title></head>
+<body>
+  <h2>Socket.IO Test</h2>
+  <div id="log" style="font-family:monospace;font-size:13px;line-height:1.8"></div>
+
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script>
+    const log = (msg) => {
+      document.getElementById('log').innerHTML += msg + '<br>';
+    };
+
+    const socket = io('http://localhost:3001');
+
+    socket.on('connect', () => {
+      log('✅ Connected: ' + socket.id);
+
+      socket.emit('join-room', {
+        roomId: 'test-room-1',
+        userId: 'user-abc',
+        userName: 'Ahmed',
+        color: '#3B82F6'
+      });
+    });
+
+    socket.on('room-state', (data) => {
+      log('📦 room-state received: ' + JSON.stringify(data));
+    });
+
+    socket.on('users-update', (users) => {
+      log('👥 users-update: ' + JSON.stringify(users));
+    });
+
+    socket.on('user-joined', (user) => {
+      log('👤 user-joined: ' + JSON.stringify(user));
+    });
+
+    socket.on('code-update', (data) => {
+      log('✏️ code-update: ' + data.code.slice(0, 40));
+    });
+
+    socket.on('new-message', (msg) => {
+      log('💬 message: ' + msg.userName + ': ' + msg.message);
+    });
+
+    socket.on('disconnect', () => {
+      log('❌ Disconnected');
+    });
+
+    // After 1s, emit a code change
+    setTimeout(() => {
+      socket.emit('code-change', {
+        roomId: 'test-room-1',
+        code: 'function hello() {\n  return "world";\n}'
+      });
+      log('📤 Sent code-change');
+    }, 1000);
+
+    // After 2s, send a chat message
+    setTimeout(() => {
+      socket.emit('send-message', {
+        roomId: 'test-room-1',
+        message: 'Hey, this is a test message!',
+        userId: 'user-abc',
+        userName: 'Ahmed'
+      });
+      log('📤 Sent chat message');
+    }, 2000);
+  </script>
+</body>
+</html>

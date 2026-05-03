@@ -1,0 +1,12 @@
+import { Router } from 'express';
+import { create, list, getOne } from './room.controller';
+import { authenticate } from '../../middleware/authenticate';
+
+const router = Router();
+
+router.use(authenticate);
+router.post('/', create);
+router.get('/', list);
+router.get('/:id', getOne);
+
+export default router;

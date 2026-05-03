@@ -1,0 +1,58 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String        @id @default(cuid())
+  name      String
+  email     String        @unique
+  password  String
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  sessions  UserSession[]
+}
+
+model Room {
+  id        String    @id @default(cuid())
+  name      String
+  type      String    @default("session")  //session or interview
+  code      String    @default("// Start coding here\n")
+  language  String    @default("javascript")
+  createdAt DateTime  @default(now())
+  sessions  Session[]
+}
+
+model Session {
+  id        String         @id @default(cuid())
+  roomId    String
+  room      Room           @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  snapshots CodeSnapshot[]
+  users     UserSession[]
+  createdAt DateTime       @default(now())
+  endedAt   DateTime?
+}
+
+model UserSession {
+  id        String   @id @default(cuid())
+  userId    String
+  sessionId String
+  role      String   @default("candidate")
+  joinedAt  DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, sessionId])
+}
+
+model CodeSnapshot {
+  id        String   @id @default(cuid())
+  sessionId String
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  code      String
+  language  String   @default("javascript")
+  createdAt DateTime @default(now())
+}
