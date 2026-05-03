@@ -40,11 +40,17 @@ export const list = async (req: AuthRequest, res: Response): Promise<void> => {
 
 export const getOne = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const room = await getRoomById(req.params.id);
+    const idParam = req.params.id;
+
+    const id = Array.isArray(idParam) ? idParam[0] : idParam;
+
+    const room = await getRoomById(id);
+
     if (!room) {
       res.status(404).json({ error: "Room not found" });
       return;
     }
+
     res.json(room);
   } catch {
     res.status(500).json({ error: "Server error" });
