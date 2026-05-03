@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Lock, Users, Code2, ChevronRight, UserPlus, LogIn } from "lucide-react";
+import { Lock, Code2, ChevronRight, UserPlus, LogIn } from "lucide-react";
 import { Navbar } from "../components/Layout/Navbar";
 import { Footer } from "../components/Layout/Footer";
 import { useAuthStore } from "../store/authStore";

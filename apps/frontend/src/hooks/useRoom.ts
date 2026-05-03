@@ -1,4 +1,5 @@
-import { useEffect, useCallback, useRef, MutableRefObject } from "react";
+import { useEffect, useCallback, useRef } from "react";
+import type { MutableRefObject } from "react";
 import { getSocket } from "../services/socket";
 import {
   useRoomStore,

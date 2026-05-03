@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Zap,
@@ -108,8 +108,7 @@ function useCursorAnimation(
 
   useEffect(() => {
     let t = offset;
-    let blinkTimer: ReturnType<typeof setInterval>;
-
+    
     const blink = setInterval(() => {
       setState((s) => ({ ...s, visible: !s.visible }));
     }, 530);
@@ -317,7 +316,7 @@ function LiveEditorMockup() {
                         top: 0,
                         width: "2px",
                         height: "22px",
-                        background: c.visible ? c.color : "transparent",
+                        background: c.state.visible ? c.color : "transparent",
                         borderRadius: "1px",
                         transition: "left 0.08s ease",
                       }}

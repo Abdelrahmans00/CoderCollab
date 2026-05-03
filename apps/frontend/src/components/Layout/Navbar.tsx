@@ -7,7 +7,6 @@ export const Navbar = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   const [scrolled, setScrolled] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
