@@ -10,17 +10,16 @@ import { setupRoomSocket } from "./sockets/room.socket";
 const app = express();
 const httpServer = createServer(app);
 
+const FRONTEND_URL =
+  process.env.NODE_ENV === "production"
+    ? process.env.FRONTEND_URL
+    : "http://localhost:5173";
+
 const io = new Server(httpServer, {
   cors: {
-    origin:
-      process.env.NODE_ENV === "production"
-        ? "https://yourdomain.com"
-        : ["http://localhost:5173",
-           "http://127.0.0.1:5500",
-        ],
+    origin: FRONTEND_URL,
     credentials: true,
   },
-  // Ping every 25s, disconnect if no pong within 60s
   pingInterval: 25000,
   pingTimeout: 60000,
 });
@@ -29,38 +28,29 @@ setupRoomSocket(io);
 
 app.use(
   cors({
-    origin:
-      process.env.NODE_ENV === "production"
-        ? "https://yourdomain.com"
-        : "http://localhost:5173",
+    origin: FRONTEND_URL,
     credentials: true,
   })
 );
+
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", time: new Date().toISOString() });
+  res.json({ status: "ok" });
 });
 
 app.use("/api/auth", authRoutes);
 app.use("/api/rooms", roomRoutes);
 
-app.use(
-  (
-    err: any,
-    _req: express.Request,
-    res: express.Response,
-    _next: express.NextFunction
-  ) => {
-    console.error(err.stack);
-    res.status(500).json({ error: "Internal server error" });
-  }
-);
+app.use((err: any, _req: express.Request, res: express.Response) => {
+  console.error(err);
+  res.status(500).json({ error: "Internal server error" });
+});
 
 const PORT = process.env.PORT || 3001;
+
 httpServer.listen(PORT, () => {
-  console.log(`Backend running  → http://localhost:${PORT}`);
-  console.log(`Socket.IO ready  → ws://localhost:${PORT}`);
+  console.log(`Backend running → ${PORT}`);
 });
 
 export { io, httpServer };
