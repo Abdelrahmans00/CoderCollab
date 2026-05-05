@@ -54,6 +54,20 @@ const io = new Server(httpServer, {
   cors: corsOptions,
   pingInterval: 25000,
   pingTimeout: 60000,
+  transports: ["websocket", "polling"],
+  allowUpgrades: true,
+  connectionStateRecovery: {
+    maxDisconnectionDuration: 2 * 60 * 1000,
+    skipMiddlewares: true,
+  },
+});
+
+io.engine.on("connection_error", (err) => {
+  console.error("Socket.IO engine connection error:", {
+    code: err.code,
+    message: err.message,
+    context: err.context,
+  });
 });
 
 

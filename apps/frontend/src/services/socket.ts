@@ -26,10 +26,14 @@ export const getSocket = (): Socket => {
     socket = io(SOCKET_URL, {
       withCredentials: true,
       autoConnect: true,
-      reconnectionAttempts: 10,
-      reconnectionDelay: 2000,
-      // Production on some hosts/proxies is more stable with websocket-only.
-      transports: isProduction ? ["websocket"] : ["polling", "websocket"],
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
+      transports: ["websocket", "polling"],
+      tryAllTransports: true,
+      rememberUpgrade: isProduction,
       path: "/socket.io",
     });
 

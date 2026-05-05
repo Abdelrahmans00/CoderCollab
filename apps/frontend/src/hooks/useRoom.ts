@@ -53,13 +53,22 @@ export const useRoom = (
   );
 
   useEffect(() => {
-    socket.emit("join-room", {
-      roomId,
-      userId,
-      userName,
-      color: colorRef.current,
-      role,
-    });
+    const joinRoom = () => {
+      socket.emit("join-room", {
+        roomId,
+        userId,
+        userName,
+        color: colorRef.current,
+        role,
+      });
+    };
+
+    // Re-join after every reconnect because socket.id changes and room membership is lost.
+    socket.on("connect", joinRoom);
+
+    if (socket.connected) {
+      joinRoom();
+    }
 
     // ── Room state (initial restore) ─────────────────────────
     socket.on(
@@ -129,6 +138,7 @@ export const useRoom = (
     });
 
     return () => {
+      socket.off("connect", joinRoom);
       socket.off("room-state");
       socket.off("users-update");
       socket.off("user-joined");
