@@ -46,17 +46,30 @@ class InMemoryRedisLike implements RedisLike {
   }
 }
 
+const isValidRedisUrl = (value: string): boolean => {
+  if (!value) return false;
+
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "redis:" || parsed.protocol === "rediss:";
+  } catch {
+    return false;
+  }
+};
+
 const createRedisStore = (): RedisLike => {
   const rawUrl = (process.env.REDIS_URL || "").trim();
 
-  if (!rawUrl || rawUrl.startsWith("/") || rawUrl === "redis://localhost:6379") {
-    console.warn("Redis disabled or not configured. Using in-memory room cache.");
+  if (!isValidRedisUrl(rawUrl)) {
+    console.warn(
+      "Redis disabled, missing, or invalid. Using in-memory room cache."
+    );
     return new InMemoryRedisLike();
   }
 
   try {
     const redis = new Redis(rawUrl, {
-      maxRetriesPerRequest: 1,
+      maxRetriesPerRequest: null,
       enableReadyCheck: false,
       lazyConnect: true,
       connectTimeout: 10_000,
