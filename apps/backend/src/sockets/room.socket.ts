@@ -2,10 +2,78 @@ import { Server, Socket } from "socket.io";
 import Redis from "ioredis";
 import { saveRoomCode, getRoomCode } from "../modules/room/room.service";
 
-const redis = new Redis(process.env.REDIS_URL || "redis://localhost:6379");
+type RedisLike = {
+  get(key: string): Promise<string | null>;
+  set(key: string, value: string): Promise<"OK">;
+  del(key: string): Promise<number>;
+  smembers(key: string): Promise<string[]>;
+  sadd(key: string, ...members: string[]): Promise<number>;
+};
 
-redis.on("error", (err) => console.error("Redis error:", err.message));
-redis.on("connect", () => console.log("Redis connected"));
+class InMemoryRedisLike implements RedisLike {
+  private values = new Map<string, string>();
+  private sets = new Map<string, Set<string>>();
+
+  async get(key: string): Promise<string | null> {
+    return this.values.get(key) ?? null;
+  }
+
+  async set(key: string, value: string): Promise<"OK"> {
+    this.values.set(key, value);
+    return "OK";
+  }
+
+  async del(key: string): Promise<number> {
+    const existed = this.values.delete(key) || this.sets.delete(key);
+    return existed ? 1 : 0;
+  }
+
+  async smembers(key: string): Promise<string[]> {
+    return Array.from(this.sets.get(key) ?? []);
+  }
+
+  async sadd(key: string, ...members: string[]): Promise<number> {
+    const set = this.sets.get(key) ?? new Set<string>();
+    let added = 0;
+    for (const member of members) {
+      if (!set.has(member)) {
+        set.add(member);
+        added += 1;
+      }
+    }
+    this.sets.set(key, set);
+    return added;
+  }
+}
+
+const createRedisStore = (): RedisLike => {
+  const rawUrl = (process.env.REDIS_URL || "").trim();
+
+  if (!rawUrl || rawUrl.startsWith("/") || rawUrl === "redis://localhost:6379") {
+    console.warn("Redis disabled or not configured. Using in-memory room cache.");
+    return new InMemoryRedisLike();
+  }
+
+  try {
+    const redis = new Redis(rawUrl, {
+      maxRetriesPerRequest: 1,
+      enableReadyCheck: false,
+      lazyConnect: true,
+      connectTimeout: 10_000,
+      retryStrategy: (times) => Math.min(times * 1000, 5000),
+    });
+
+    redis.on("error", (err) => console.error("Redis error:", err.message));
+    redis.on("connect", () => console.log("Redis connected"));
+
+    return redis as unknown as RedisLike;
+  } catch (err) {
+    console.warn("Failed to create Redis client, using in-memory room cache.", err);
+    return new InMemoryRedisLike();
+  }
+};
+
+const redis = createRedisStore();
 
 interface UserMeta {
   userId: string;

@@ -54,8 +54,8 @@ const io = new Server(httpServer, {
   cors: corsOptions,
   pingInterval: 25000,
   pingTimeout: 60000,
-  transports: ["websocket", "polling"],
-  allowUpgrades: true,
+  transports: process.env.NODE_ENV === "production" ? ["websocket"] : ["websocket", "polling"],
+  allowUpgrades: process.env.NODE_ENV !== "production",
   connectionStateRecovery: {
     maxDisconnectionDuration: 2 * 60 * 1000,
     skipMiddlewares: true,

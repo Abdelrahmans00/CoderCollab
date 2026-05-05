@@ -24,15 +24,16 @@ let socket: Socket | null = null;
 export const getSocket = (): Socket => {
   if (!socket) {
     socket = io(SOCKET_URL, {
-      withCredentials: true,
+      withCredentials: false,
       autoConnect: true,
       reconnection: true,
       reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       timeout: 20000,
-      transports: ["websocket", "polling"],
-      tryAllTransports: true,
+      transports: isProduction ? ["websocket"] : ["websocket", "polling"],
+      upgrade: !isProduction,
+      tryAllTransports: !isProduction,
       rememberUpgrade: isProduction,
       path: "/socket.io",
     });
