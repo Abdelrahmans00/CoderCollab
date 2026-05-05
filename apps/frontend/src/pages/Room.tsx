@@ -183,10 +183,11 @@ function RoomInner({ roomId, user, role }: RoomInnerProps) {
         {/* Editor */}
         <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
           <CodeEditor
-            onCodeChange={handleCodeChange}
-            onCursorMove={emitCursorMove}
-            onEditorMount={(editor) => setEditorInstance(editor)}
-          />
+              onCodeChange={handleCodeChange}
+              onCursorMove={emitCursorMove}
+              onEditorMount={(editor) => setEditorInstance(editor)}
+              isApplyingRemote={isApplyingRemote}
+            />
           <CursorOverlay editor={editorInstance} />
         </div>
 

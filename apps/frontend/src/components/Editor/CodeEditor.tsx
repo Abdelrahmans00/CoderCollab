@@ -9,6 +9,7 @@ interface Props {
   onCursorMove: (line: number, column: number) => void;
   onEditorMount?: (editor: Monaco.editor.IStandaloneCodeEditor) => void;
   readOnly?: boolean;
+  isApplyingRemote?: React.MutableRefObject<boolean>;
 }
 
 export const CodeEditor = ({
@@ -16,12 +17,13 @@ export const CodeEditor = ({
   onCursorMove,
   onEditorMount,
   readOnly = false,
+  isApplyingRemote,
 }: Props) => {
   const { language } = useRoomStore();
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof Monaco | null>(null);
-  // true while we are applying a remote/restore update — suppresses onChange echo
-  const isApplyingRemote = useRef(false);
+  const localApplyingRemote = useRef(false);
+  const applyingRemoteRef = (isApplyingRemote as React.MutableRefObject<boolean>) ?? localApplyingRemote;
 
   // ── Sync language changes to Monaco imperatively ─────────────
   useEffect(() => {
@@ -50,7 +52,7 @@ export const CodeEditor = ({
   const handleChange: OnChange = useCallback(
     (value) => {
       // Skip — this change was applied programmatically, not by the user
-      if (isApplyingRemote.current) return;
+      if (applyingRemoteRef.current) return;
       onCodeChange(value ?? "");
     },
     [onCodeChange]
