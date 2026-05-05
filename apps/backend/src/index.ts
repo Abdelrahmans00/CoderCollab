@@ -11,19 +11,34 @@ import { setupRoomSocket } from "./sockets/room.socket";
 const app = express();
 const httpServer = createServer(app);
 
-
-const allowedOrigins = [
+const staticAllowedOrigins = [
   "http://localhost:5173",
   "https://coder-collab-frontend-pykt.vercel.app",
   "https://coder-collab-frontend-pykt-1fhd4r7vb-abdelrahmans00s-projects.vercel.app",
 ];
+
+const envAllowedOrigins = (process.env.CORS_ORIGINS || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const allowedOrigins = new Set([...staticAllowedOrigins, ...envAllowedOrigins]);
+
+const isAllowedOrigin = (origin: string): boolean => {
+  if (allowedOrigins.has(origin)) return true;
+
+  if (/^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin)) return true;
+  if (/^http:\/\/localhost:\d+$/i.test(origin)) return true;
+
+  return false;
+};
 
 
 const corsOptions = {
   origin: (origin: any, callback: any) => {
     if (!origin) return callback(null, true);
 
-    if (allowedOrigins.includes(origin)) {
+    if (isAllowedOrigin(origin)) {
       return callback(null, true);
     }
 
