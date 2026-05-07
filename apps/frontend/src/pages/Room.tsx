@@ -8,8 +8,7 @@ import { useRoom } from "../hooks/useRoom";
 
 import api from "../services/api";
 
-import { CodeEditor } from "../components/Editor/CodeEditor";
-import { makeApplyCode } from "../components/Editor/applyCode";
+import { CodeEditor, makeApplyCode } from "../components/Editor/CodeEditor";
 import { CursorOverlay } from "../components/Editor/CursorOverlay";
 
 import { RoomToolbar } from "../components/Room/RoomToolbar";

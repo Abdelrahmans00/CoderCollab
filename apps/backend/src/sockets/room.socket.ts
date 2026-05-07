@@ -1,6 +1,5 @@
 import { Server, Socket } from "socket.io";
 import Redis from "ioredis";
-import DiffMatchPatch from "diff-match-patch";
 import { saveRoomCode, getRoomCode } from "../modules/room/room.service";
 
 type RedisLike = {
@@ -88,7 +87,6 @@ const createRedisStore = (): RedisLike => {
 };
 
 const redis = createRedisStore();
-const dmp = new DiffMatchPatch();
 
 interface UserMeta {
   userId: string;
@@ -308,27 +306,9 @@ export const setupRoomSocket = (io: Server) => {
     // ── Code change ──────────────────────────────────────────
     socket.on(
       "code-change",
-      async ({
-        roomId,
-        code,
-        baseCode,
-      }: {
-        roomId: string;
-        code: string;
-        baseCode?: string;
-      }) => {
-        const currentCode = (await redis.get(`room:${roomId}:code`)) ?? "";
-
-        let nextCode = code;
-
-        if (baseCode && baseCode !== currentCode) {
-          const patches = dmp.patch_make(baseCode, code);
-          const [mergedCode] = dmp.patch_apply(patches, currentCode);
-          nextCode = mergedCode;
-        }
-
-        await redis.set(`room:${roomId}:code`, nextCode);
-        io.to(roomId).emit("code-update", { code: nextCode });
+      async ({ roomId, code }: { roomId: string; code: string }) => {
+        await redis.set(`room:${roomId}:code`, code);
+        socket.to(roomId).emit("code-update", { code });
       }
     );
 

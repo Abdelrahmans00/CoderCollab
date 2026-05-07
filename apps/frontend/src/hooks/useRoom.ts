@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef, useState } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import type { MutableRefObject } from "react";
 import { getSocket } from "../services/socket";
 import {
@@ -36,9 +36,7 @@ export const useRoom = (
   } = useRoomStore();
 
   const socket = getSocket();
-  const lastSyncedCodeRef = useRef("// Start coding here\n");
-  const [userColor] = useState(
-    () =>
+  const colorRef = useRef(
     USER_COLORS[Math.floor(Math.random() * USER_COLORS.length)]
   );
 
@@ -50,8 +48,6 @@ export const useRoom = (
       applyCodeRef?.current?.(code);
       // Keep store in sync for other components that read it
       setCode(code);
-      // This is now the latest server-acknowledged snapshot.
-      lastSyncedCodeRef.current = code;
     },
     [applyCodeRef, setCode]
   );
@@ -62,7 +58,7 @@ export const useRoom = (
         roomId,
         userId,
         userName,
-        color: userColor,
+        color: colorRef.current,
         role,
       });
     };
@@ -157,36 +153,12 @@ export const useRoom = (
       socket.off("problem-updated");
       resetRoom();
     };
-  }, [
-    addMessage,
-    addUser,
-    applyCode,
-    removeCursor,
-    removeUser,
-    resetRoom,
-    roomId,
-    role,
-    setLanguage,
-    setProblem,
-    setUsers,
-    socket,
-    startTimer,
-    stopTimer,
-    updateCursor,
-    userId,
-    userName,
-    userColor,
-  ]);
+  }, [roomId, userId, userName, role]);
 
   // ── Emitters ─────────────────────────────────────────────────
   const emitCodeChange = useCallback(
-    (code: string) =>
-      socket.emit("code-change", {
-        roomId,
-        code,
-        baseCode: lastSyncedCodeRef.current,
-      }),
-    [roomId, socket]
+    (code: string) => socket.emit("code-change", { roomId, code }),
+    [roomId]
   );
 
   const emitCursorMove = useCallback(
@@ -195,53 +167,53 @@ export const useRoom = (
         roomId,
         userId,
         userName,
-        color: userColor,
+        color: colorRef.current,
         position: { line, column },
       }),
-    [roomId, socket, userId, userName, userColor]
+    [roomId, userId, userName]
   );
 
   const emitLanguageChange = useCallback(
     (language: string) => {
       socket.emit("language-change", { roomId, language });
       const { code } = useRoomStore.getState();
-      emitCodeChange(code);
+      socket.emit("code-change", { roomId, code });
     },
-    [roomId, emitCodeChange, socket]
+    [roomId]
   );
 
   const sendMessage = useCallback(
     (message: string) =>
       socket.emit("send-message", { roomId, message, userId, userName }),
-    [roomId, socket, userId, userName]
+    [roomId, userId, userName]
   );
 
   const startTimerEmit = useCallback(
     (duration: number) =>
       socket.emit("start-timer", { roomId, duration }),
-    [roomId, socket]
+    [roomId]
   );
 
   const stopTimerEmit = useCallback(
     () => socket.emit("stop-timer", { roomId }),
-    [roomId, socket]
+    [roomId]
   );
 
   const setProblemEmit = useCallback(
     (problem: Problem) =>
       socket.emit("set-problem", { roomId, problem }),
-    [roomId, socket]
+    [roomId]
   );
 
   const resetProblemEmit = useCallback(
     () => socket.emit("reset-problem", { roomId }),
-    [roomId, socket]
+    [roomId]
   );
 
   const setRoleEmit = useCallback(
     (targetUserId: string, newRole: "interviewer" | "candidate") =>
       socket.emit("set-role", { roomId, targetUserId, role: newRole }),
-    [roomId, socket]
+    [roomId]
   );
 
   return {
@@ -254,6 +226,6 @@ export const useRoom = (
     setProblemEmit,
     resetProblemEmit,
     setRoleEmit,
-    userColor,
+    userColor: colorRef.current,
   };
 };

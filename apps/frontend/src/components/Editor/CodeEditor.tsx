@@ -52,10 +52,10 @@ export const CodeEditor = ({
   const handleChange: OnChange = useCallback(
     (value) => {
       // Skip — this change was applied programmatically, not by the user
-      if (applyingRemoteRef.current) return; 
+      if (applyingRemoteRef.current) return;
       onCodeChange(value ?? "");
     },
-    [onCodeChange, applyingRemoteRef]
+    [onCodeChange]
   );
 
   return (
@@ -101,4 +101,32 @@ export const CodeEditor = ({
       />
     </div>
   );
+};
+
+// ── Exported helper so Room.tsx can write to the editor ────────
+// Call this with the editor instance to get an applyCode function
+export const makeApplyCode = (
+  editor: Monaco.editor.IStandaloneCodeEditor,
+  isApplyingRemote: React.MutableRefObject<boolean>
+) => {
+  return (newCode: string) => {
+    const model = editor.getModel();
+    if (!model) return;
+    if (model.getValue() === newCode) return; // identical — skip
+
+    const pos = editor.getPosition();
+    const scrollTop = editor.getScrollTop();
+
+    isApplyingRemote.current = true;
+    model.pushEditOperations(
+      [],
+      [{ range: model.getFullModelRange(), text: newCode }],
+      () => null
+    );
+    isApplyingRemote.current = false;
+
+    // Restore cursor and scroll so the user doesn't jump around
+    if (pos) editor.setPosition(pos);
+    editor.setScrollTop(scrollTop);
+  };
 };
