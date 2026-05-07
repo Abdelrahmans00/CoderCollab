@@ -172,6 +172,44 @@ const systemMessage = (
   });
 };
 
+const handleRoomExit = async (
+  io: Server,
+  socket: Socket,
+  roomId: string,
+  source: "leave-room" | "disconnecting"
+): Promise<void> => {
+  if (!roomId || roomId === socket.id) return;
+
+  // Persist latest code before this user leaves the room.
+  await persistRoomCode(roomId);
+
+  const leaving = await removeUserFromRoom(roomId, socket.id);
+
+  // Explicitly detach from the Socket.IO room when leaving manually.
+  if (socket.rooms.has(roomId)) {
+    await socket.leave(roomId);
+  }
+
+  if (!leaving) return;
+
+  const remaining = await getRoomUsers(roomId);
+
+  io.to(roomId).emit("users-update", remaining);
+  socket.to(roomId).emit("user-left", {
+    userId: leaving.userId,
+    userName: leaving.userName,
+  });
+
+  systemMessage(io, roomId, `${leaving.userName} left the room`);
+
+  if (remaining.length === 0) {
+    stopAutosave(roomId);
+    console.log(`Room ${roomId} is now empty`);
+  }
+
+  console.log(`${leaving.userName} left room ${roomId} (${source})`);
+};
+
 // ── Main socket setup ─────────────────────────────────────────
 export const setupRoomSocket = (io: Server) => {
   io.on("connection", (socket: Socket) => {
@@ -360,42 +398,18 @@ export const setupRoomSocket = (io: Server) => {
       io.to(roomId).emit("problem-updated", { problem: null });
     });
 
+    socket.on("leave-room", async ({ roomId }: { roomId: string }) => {
+      await handleRoomExit(io, socket, roomId, "leave-room");
+    });
+
     // ── Disconnect ───────────────────────────────────────────
     socket.on("disconnecting", async () => {
-      for (const roomId of socket.rooms) {
-        if (roomId === socket.id) continue;
+      const joinedRooms = [...socket.rooms].filter(
+        (roomId) => roomId !== socket.id
+      );
 
-        // 1. Save code to DB immediately before user is removed
-        await persistRoomCode(roomId);
-
-        // 2. Remove user from Redis
-        const leaving = await removeUserFromRoom(roomId, socket.id);
-        if (!leaving) continue;
-
-        // 3. Get remaining users
-        const remaining = await getRoomUsers(roomId);
-
-        // 4. Broadcast updated user list
-        io.to(roomId).emit("users-update", remaining);
-        socket.to(roomId).emit("user-left", {
-          userId: leaving.userId,
-          userName: leaving.userName,
-        });
-
-        // 5. Send system message so everyone sees who left
-        systemMessage(
-          io,
-          roomId,
-          `${leaving.userName} left the room`
-        );
-
-        // 6. If room is now empty, stop autosave interval
-        if (remaining.length === 0) {
-          stopAutosave(roomId);
-          console.log(`Room ${roomId} is now empty`);
-        }
-
-        console.log(`${leaving.userName} left room ${roomId}`);
+      for (const roomId of joinedRooms) {
+        await handleRoomExit(io, socket, roomId, "disconnecting");
       }
     });
 

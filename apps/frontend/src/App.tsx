@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuthStore } from "./store/authStore";
 import Dashboard from "./pages/Dashboard";
@@ -9,10 +10,35 @@ import Room from "./pages/Room";
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isHydrating = useAuthStore((s) => s.isHydrating);
+
+  if (isHydrating) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "grid",
+          placeItems: "center",
+          background: "#05050a",
+          color: "rgba(255,255,255,0.6)",
+          fontSize: "14px",
+        }}
+      >
+        Checking your session...
+      </div>
+    );
+  }
+
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
 }
 
 export default function App() {
+  const hydrateAuth = useAuthStore((s) => s.hydrateAuth);
+
+  useEffect(() => {
+    void hydrateAuth();
+  }, [hydrateAuth]);
+
   return (
     <BrowserRouter>
       <Routes>

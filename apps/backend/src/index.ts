@@ -7,9 +7,11 @@ import { Server } from "socket.io";
 import authRoutes from "./modules/auth/auth.routes";
 import roomRoutes from "./modules/room/room.routes";
 import { setupRoomSocket } from "./sockets/room.socket";
+import executeRoutes from "./modules/execute/execute.routes";
 
 const app = express();
 const httpServer = createServer(app);
+
 
 const staticAllowedOrigins = [
   "http://localhost:5173",
@@ -84,6 +86,7 @@ app.get("/health", (_req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/rooms", roomRoutes);
+app.use("/api/execute", executeRoutes);
 
 
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
