@@ -313,10 +313,15 @@ export default function SessionPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!user) return;
-    api.get("/rooms?type=session").then((r) => setRooms(r.data));
+    setLoading(true);
+    api
+      .get("/rooms?type=session")
+      .then((r) => setRooms(r.data))
+      .finally(() => setLoading(false));
   }, [user]);
 
   const createRoom = async () => {
@@ -376,6 +381,10 @@ export default function SessionPage() {
         </div>
 
         {/* Rooms */}
+        <p style={{ fontSize: "13px", color: "var(--muted)", marginBottom: "16px", fontFamily: "'Space Mono',monospace" }}>
+          {loading ? "Loading..." : `${rooms.length} room${rooms.length !== 1 ? "s" : ""} available`}
+        </p>
+
         <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
           {rooms.map((room) => (
             <div key={room.id}
@@ -395,7 +404,7 @@ export default function SessionPage() {
               </button>
             </div>
           ))}
-          {rooms.length === 0 && (
+          {!loading && rooms.length === 0 && (
             <div style={{ padding: "48px", textAlign: "center", background: "var(--surface)", border: "1px dashed var(--border)", borderRadius: "12px", color: "var(--muted)", fontSize: "14px" }}>
               No sessions yet. Create one to start coding with friends.
             </div>
