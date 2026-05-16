@@ -1,60 +1,31 @@
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import MonacoEditor from "@monaco-editor/react";
-import type { OnMount } from "@monaco-editor/react";
+import type { OnMount, OnChange } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
-import type * as Y from "yjs";
-import { MonacoBinding } from "y-monaco";
 import { useRoomStore } from "../../store/roomStore";
 
 interface Props {
-  yText?: Y.Text | null;
-  onModelChange?: (code: string) => void;
+  onCodeChange: (code: string) => void;
   onCursorMove: (line: number, column: number) => void;
   onEditorMount?: (editor: Monaco.editor.IStandaloneCodeEditor) => void;
   readOnly?: boolean;
+  isApplyingRemote?: React.MutableRefObject<boolean>;
 }
 
 export const CodeEditor = ({
-  yText,
-  onModelChange,
+  onCodeChange,
   onCursorMove,
   onEditorMount,
   readOnly = false,
+  isApplyingRemote,
 }: Props) => {
   const { language } = useRoomStore();
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof Monaco | null>(null);
-  const bindingRef = useRef<MonacoBinding | null>(null);
+  const localApplyingRemote = useRef(false);
+  const applyingRemoteRef = (isApplyingRemote as React.MutableRefObject<boolean>) ?? localApplyingRemote;
 
-  const destroyBinding = useCallback(() => {
-    if (!bindingRef.current) return;
-    bindingRef.current.destroy();
-    bindingRef.current = null;
-  }, []);
-
-  const bindEditorToYText = useCallback(() => {
-    const editor = editorRef.current;
-    const model = editor?.getModel();
-    if (!editor || !model || !yText) return;
-
-    if (bindingRef.current) {
-
-      if ((bindingRef.current as any).type === yText) return;
-      destroyBinding();
-    }
-
-    const binding = new MonacoBinding(
-      yText,
-      model,
-      new Set([editor]),
-
-    );
-    bindingRef.current = binding;
-
-
-    onModelChange?.(model.getValue());
-  }, [destroyBinding, onModelChange, yText]);
-
+  // ── Sync language changes to Monaco imperatively ─────────────
   useEffect(() => {
     const editor = editorRef.current;
     const m = monacoRef.current;
@@ -66,16 +37,6 @@ export const CodeEditor = ({
     }
   }, [language]);
 
-  useEffect(() => {
-
-    if (!editorRef.current) return;
-    bindEditorToYText();
-
-    return () => {
-      destroyBinding();
-    };
-  }, [bindEditorToYText, destroyBinding]);
-
   const handleMount: OnMount = (editor, monacoInstance) => {
     editorRef.current = editor;
     monacoRef.current = monacoInstance;
@@ -84,17 +45,27 @@ export const CodeEditor = ({
       onCursorMove(e.position.lineNumber, e.position.column);
     });
 
-    bindEditorToYText();
-
     editor.focus();
     onEditorMount?.(editor);
   };
+
+  const handleChange: OnChange = useCallback(
+    (value) => {
+      // Skip — this change was applied programmatically, not by the user
+      if (applyingRemoteRef.current) return;
+      onCodeChange(value ?? "");
+    },
+    [onCodeChange]
+  );
 
   return (
     <div style={{ width: "100%", height: "100%" }}>
       <MonacoEditor
         height="100%"
         defaultLanguage="javascript"
+        // No value/defaultValue prop — editor is fully uncontrolled
+        // We write to it imperatively via applyCode (see Room.tsx)
+        onChange={handleChange}
         onMount={handleMount}
         theme="vs-dark"
         options={{
@@ -130,4 +101,32 @@ export const CodeEditor = ({
       />
     </div>
   );
+};
+
+// ── Exported helper so Room.tsx can write to the editor ────────
+// Call this with the editor instance to get an applyCode function
+export const makeApplyCode = (
+  editor: Monaco.editor.IStandaloneCodeEditor,
+  isApplyingRemote: React.MutableRefObject<boolean>
+) => {
+  return (newCode: string) => {
+    const model = editor.getModel();
+    if (!model) return;
+    if (model.getValue() === newCode) return; // identical — skip
+
+    const pos = editor.getPosition();
+    const scrollTop = editor.getScrollTop();
+
+    isApplyingRemote.current = true;
+    model.pushEditOperations(
+      [],
+      [{ range: model.getFullModelRange(), text: newCode }],
+      () => null
+    );
+    isApplyingRemote.current = false;
+
+    // Restore cursor and scroll so the user doesn't jump around
+    if (pos) editor.setPosition(pos);
+    editor.setScrollTop(scrollTop);
+  };
 };

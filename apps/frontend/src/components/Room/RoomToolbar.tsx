@@ -81,6 +81,12 @@ const LANGUAGES: Language[] = [
     icon: "KT",
     defaultCode: "// Kotlin\nfun solution() {\n    \n}\n",
   },
+  {
+    id: "sql",
+    label: "SQL",
+    icon: "SQ",
+    defaultCode: "-- SQL\nSELECT *\nFROM table_name\nWHERE condition;\n",
+  },
 ];
 
 const ICON_COLORS: Record<string, string> = {
@@ -100,7 +106,7 @@ const ICON_COLORS: Record<string, string> = {
 
 interface Props {
   roomName: string;
-  onLanguageChange: (lang: string, nextCode?: string) => void;
+  onLanguageChange: (lang: string) => void;
   onLeave: () => void;
 }
 
@@ -139,7 +145,7 @@ export const RoomToolbar = ({ roomName, onLanguageChange, onLeave }: Props) => {
     // Reset editor to language's default boilerplate
     setCode(lang.defaultCode);
     // Emit to all other users
-    onLanguageChange(lang.id, lang.defaultCode);
+    onLanguageChange(lang.id);
     setPickerOpen(false);
     setSearch("");
   };
