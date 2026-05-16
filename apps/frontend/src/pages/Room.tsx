@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import type * as Monaco from "monaco-editor";
 
@@ -8,7 +8,7 @@ import { useRoom } from "../hooks/useRoom";
 
 import api from "../services/api";
 
-import { CodeEditor, makeApplyCode } from "../components/Editor/CodeEditor";
+import { CodeEditor } from "../components/Editor/CodeEditor";
 import { CursorOverlay } from "../components/Editor/CursorOverlay";
 
 import { RoomToolbar } from "../components/Room/RoomToolbar";
@@ -60,18 +60,6 @@ function RoomInner({
     useState(true);
 
   /**
-   * applyCode function reference
-   */
-  const applyCodeRef = useRef<
-    ((code: string) => void) | null
-  >(null);
-
-  /**
-   * Prevents remote changes from triggering loops
-   */
-  const isApplyingRemote = useRef(false);
-
-  /**
    * Set interviewer state
    */
   useEffect(() => {
@@ -92,22 +80,10 @@ function RoomInner({
   }, [roomId]);
 
   /**
-   * Build applyCode once editor mounts
-   */
-  useEffect(() => {
-    if (!editorInstance) return;
-
-    applyCodeRef.current = makeApplyCode(
-      editorInstance,
-      isApplyingRemote
-    );
-  }, [editorInstance]);
-
-  /**
-   * Room socket hook
+   * Room socket + Yjs sync hook
    */
   const {
-    emitCodeChange,
+    yText,
     emitCursorMove,
     emitLanguageChange,
     sendMessage,
@@ -120,18 +96,8 @@ function RoomInner({
     roomId,
     user.id,
     user.name,
-    role,
-    applyCodeRef
+    role
   );
-
-  /**
-   * Local typing
-   */
-  const handleCodeChange = (newCode: string) => {
-    setCode(newCode);
-
-    emitCodeChange(newCode);
-  };
 
   if (!roomName) return null;
 
@@ -309,12 +275,12 @@ function RoomInner({
             }}
           >
             <CodeEditor
-              onCodeChange={handleCodeChange}
+              yText={yText}
+              onModelChange={setCode}
               onCursorMove={emitCursorMove}
               onEditorMount={(editor) =>
                 setEditorInstance(editor)
               }
-              isApplyingRemote={isApplyingRemote}
             />
 
             <CursorOverlay

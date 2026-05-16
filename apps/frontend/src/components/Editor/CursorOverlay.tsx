@@ -6,10 +6,32 @@ interface Props {
   editor: Monaco.editor.IStandaloneCodeEditor | null;
 }
 
+const injectedStyles = new Set<string>();
+
+const injectCursorStyle = (cssClass: string, color: string): void => {
+  if (injectedStyles.has(cssClass)) return;
+  const style = document.createElement("style");
+  style.id = cssClass;
+  style.textContent = `
+    .${cssClass} {
+      border-left: 2px solid ${color};
+      margin-left: -1px;
+    }
+  `;
+  document.head.appendChild(style);
+  injectedStyles.add(cssClass);
+};
+
 export const CursorOverlay = ({ editor }: Props) => {
   const { cursors } = useRoomStore();
-  const widgetRefs = useRef<Record<string, Monaco.editor.IContentWidget>>({});
-  const decorationRefs = useRef<Record<string, string[]>>({});
+
+  const decorationCollections = useRef<
+    Record<string, Monaco.editor.IEditorDecorationsCollection>
+  >({});
+
+  const widgetRefs = useRef<
+    Record<string, Monaco.editor.IContentWidget>
+  >({});
 
   useEffect(() => {
     if (!editor) return;
@@ -17,91 +39,97 @@ export const CursorOverlay = ({ editor }: Props) => {
     const model = editor.getModel();
     if (!model) return;
 
-    Object.entries(cursors).forEach(([userId, cursor]) => {
+    const activeCursorIds = new Set(Object.keys(cursors));
+
+    for (const [userId, cursor] of Object.entries(cursors)) {
       const { position, color, userName } = cursor;
 
-      // ── Cursor line decoration (colored vertical bar) ────────
-      const cssClass = `cursor-user-${userId.replace(/[^a-zA-Z0-9]/g, "")}`;
+      const safeId = userId.replace(/[^a-zA-Z0-9]/g, "");
+      const cssClass = `cursor-remote-${safeId}`;
 
-      // Inject CSS for this user's color if not already injected
-      if (!document.getElementById(cssClass)) {
-        const style = document.createElement("style");
-        style.id = cssClass;
-        style.textContent = `
-          .${cssClass} {
-            border-left: 2px solid ${color};
-            margin-left: -1px;
-          }
-        `;
-        document.head.appendChild(style);
+      injectCursorStyle(cssClass, color);
+
+      const range = {
+        startLineNumber: position.line,
+        startColumn: position.column,
+        endLineNumber: position.line,
+        endColumn: position.column,
+      };
+
+      if (decorationCollections.current[userId]) {
+        decorationCollections.current[userId].set([
+          { range, options: { className: cssClass, stickiness: 1 } },
+        ]);
+      } else {
+        decorationCollections.current[userId] =
+          editor.createDecorationsCollection([
+            { range, options: { className: cssClass, stickiness: 1 } },
+          ]);
       }
 
-      // Apply decoration at cursor position
-      const newDecorations = editor.deltaDecorations(
-        decorationRefs.current[userId] || [],
-        [
-          {
-            range: new (window as any).monaco.Range(
-              position.line,
-              position.column,
-              position.line,
-              position.column
-            ),
-            options: {
-              className: cssClass,
-              stickiness: 1,
-            },
-          },
-        ]
-      );
-      decorationRefs.current[userId] = newDecorations;
-
-      // ── Name tag widget ──────────────────────────────────────
-      // Remove old widget for this user if it exists
       if (widgetRefs.current[userId]) {
         editor.removeContentWidget(widgetRefs.current[userId]);
       }
 
+      const domNode = document.createElement("div");
+      domNode.textContent = userName;
+      Object.assign(domNode.style, {
+        background: color,
+        color: "#fff",
+        fontSize: "11px",
+        fontFamily: "sans-serif",
+        padding: "1px 6px",
+        borderRadius: "3px",
+        whiteSpace: "nowrap",
+        pointerEvents: "none",
+        userSelect: "none",
+        transform: "translateY(-100%)",
+        opacity: "0.9",
+      });
+
       const widget: Monaco.editor.IContentWidget = {
         getId: () => `cursor-label-${userId}`,
-        getDomNode: () => {
-          const node = document.createElement("div");
-          node.textContent = userName;
-          node.style.cssText = `
-            background: ${color};
-            color: #fff;
-            font-size: 11px;
-            font-family: sans-serif;
-            padding: 1px 6px;
-            border-radius: 3px;
-            white-space: nowrap;
-            pointer-events: none;
-            user-select: none;
-            transform: translateY(-100%);
-            opacity: 0.9;
-          `;
-          return node;
-        },
+        getDomNode: () => domNode,
         getPosition: () => ({
           position: { lineNumber: position.line, column: position.column },
-          preference: [0], // EXACT position
+          preference: [
+            0 as Monaco.editor.ContentWidgetPositionPreference,
+          ],
         }),
       };
 
       editor.addContentWidget(widget);
       widgetRefs.current[userId] = widget;
-    });
+    }
 
-    // Clean up widgets for users who left
-    Object.keys(widgetRefs.current).forEach((userId) => {
-      if (!cursors[userId]) {
-        editor.removeContentWidget(widgetRefs.current[userId]);
-        editor.deltaDecorations(decorationRefs.current[userId] || [], []);
-        delete widgetRefs.current[userId];
-        delete decorationRefs.current[userId];
+    for (const userId of Object.keys(widgetRefs.current)) {
+      if (activeCursorIds.has(userId)) continue;
+
+      editor.removeContentWidget(widgetRefs.current[userId]);
+      delete widgetRefs.current[userId];
+
+      if (decorationCollections.current[userId]) {
+        decorationCollections.current[userId].clear();
+        delete decorationCollections.current[userId];
       }
-    });
+    }
   }, [cursors, editor]);
 
-  return null; // purely imperative, no JSX output
+  useEffect(() => {
+    return () => {
+      if (!editor) return;
+
+      for (const widget of Object.values(widgetRefs.current)) {
+        editor.removeContentWidget(widget);
+      }
+      widgetRefs.current = {};
+
+      for (const collection of Object.values(decorationCollections.current)) {
+        collection.clear();
+      }
+      decorationCollections.current = {};
+    };
+  }, [editor]);
+
+  return null;
 };
