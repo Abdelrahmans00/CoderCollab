@@ -2,30 +2,24 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
-COPY apps/frontend/package.json apps/frontend/package.json
-COPY apps/backend/package.json apps/backend/package.json
-COPY apps/backend/tsconfig.json apps/backend/tsconfig.json
-COPY apps/backend/prisma.config.ts apps/backend/prisma.config.ts
-COPY apps/backend/prisma apps/backend/prisma
+COPY package*.json ./
+COPY tsconfig.json ./
+COPY prisma ./prisma
 
 RUN npm ci
 
-COPY apps/backend apps/backend
-
-RUN npm run db:generate --workspace=apps/backend
-RUN npm run build --workspace=apps/backend
+COPY . .
+RUN npx prisma generate
+RUN npm run build
 
 FROM node:20-alpine AS runner
 
-WORKDIR /app/apps/backend
-
+WORKDIR /app
 ENV NODE_ENV=production
 
-COPY --from=builder /app/node_modules /app/node_modules
-COPY --from=builder /app/apps/backend/package.json ./package.json
-COPY --from=builder /app/apps/backend/prisma ./prisma
-COPY --from=builder /app/apps/backend/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/prisma ./prisma
 
 EXPOSE 3001
 

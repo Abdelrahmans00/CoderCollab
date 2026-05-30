@@ -1,4 +1,10 @@
 node_modules
+dist
+.env
+.env.*
+.git
+.gitignore
+.vscodenode_modules
 **/node_modules
 dist
 **/dist
