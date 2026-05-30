@@ -3,12 +3,13 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
-COPY tsconfig.json ./
-COPY prisma ./prisma
+COPY package-lock.json ./
+COPY apps/backend/tsconfig.json ./
+COPY apps/backend/prisma ./prisma
 
 RUN npm ci
 
-COPY . .
+COPY apps/backend/. .
 RUN npx prisma generate
 RUN npm run build
 
